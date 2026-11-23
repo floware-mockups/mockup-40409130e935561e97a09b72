@@ -350,7 +350,7 @@
     {
       "name": "ObiettiviResidui",
       "title": "Obiettivi di incasso",
-      "description": "Obiettivi percentuali dimostrativi con confronto automatico e segnalazione alla scadenza.",
+      "description": "Obiettivi modificabili e scostamento calcolato dagli importi, con verifica delle scadenze.",
       "role": "section",
       "pageId": "residui-attivi",
       "position": "top"
