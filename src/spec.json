@@ -30,10 +30,9 @@
         "Importo residuo",
         "Incassato",
         "Incasso previsto",
-        "Scadenza",
-        "Stato",
         "Percentuale incassata",
-        "Scostamento previsto/effettivo (punti percentuali)"
+        "Scostamento previsto/effettivo (punti percentuali)",
+        "Esito dello scostamento"
       ],
       "rows": [
         [
@@ -41,60 +40,54 @@
           "€ 68.400",
           "€ 21.600",
           "31,6%",
-          "30/06/2026",
-          "Da verificare",
           "24,0%",
-          "−7,6"
+          "−7,6",
+          "Monitoraggio"
         ],
         [
           "Sanzioni amministrative",
           "€ 94.200",
           "€ 28.300",
           "30,0%",
-          "30/06/2026",
-          "In controllo",
           "23,1%",
-          "−6,9"
+          "−6,9",
+          "Monitoraggio"
         ],
         [
           "Servizi scolastici",
           "€ 42.000",
           "€ 18.900",
           "45,0%",
-          "15/07/2026",
-          "In scadenza",
           "31,0%",
-          "−14,0"
+          "−14,0",
+          "Monitoraggio"
         ],
         [
           "Canoni patrimoniali",
           "€ 80.000",
           "€ 22.450",
           "28,1%",
-          "15/07/2026",
-          "Da verificare",
           "21,9%",
-          "−6,2"
+          "−6,2",
+          "Monitoraggio"
         ],
         [
           "IMU",
           "€ 120.000",
           "€ 330.000",
           "73,3%",
-          "30/09/2026",
-          "In controllo",
           "73,3%",
-          "0,0"
+          "0,0",
+          "In linea"
         ],
         [
           "Addizionale comunale IRPEF",
           "€ 75.000",
           "€ 175.000",
           "70,0%",
-          "30/09/2026",
-          "In controllo",
           "70,0%",
-          "0,0"
+          "0,0",
+          "In linea"
         ]
       ],
       "form": []
@@ -372,7 +365,7 @@
     {
       "name": "CalcoliIncassoCruscotto",
       "title": "Calcolo automatico degli incassi",
-      "description": "Aggiorna le colonne della percentuale incassata e dello scostamento al variare dei dati del Cruscotto.",
+      "description": "Aggiorna automaticamente percentuale incassata, scostamento ed esito al variare dei dati.",
       "role": "section",
       "pageId": "cruscotto",
       "position": "top"
