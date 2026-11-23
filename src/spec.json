@@ -31,7 +31,9 @@
         "Incassato",
         "Incasso previsto",
         "Scadenza",
-        "Stato"
+        "Stato",
+        "Percentuale incassata",
+        "Scostamento previsto/effettivo (punti percentuali)"
       ],
       "rows": [
         [
@@ -40,7 +42,9 @@
           "€ 21.600",
           "31,6%",
           "30/06/2026",
-          "Da verificare"
+          "Da verificare",
+          "24,0%",
+          "−7,6"
         ],
         [
           "Sanzioni amministrative",
@@ -48,7 +52,9 @@
           "€ 28.300",
           "30,0%",
           "30/06/2026",
-          "In controllo"
+          "In controllo",
+          "23,1%",
+          "−6,9"
         ],
         [
           "Servizi scolastici",
@@ -56,7 +62,9 @@
           "€ 18.900",
           "45,0%",
           "15/07/2026",
-          "In scadenza"
+          "In scadenza",
+          "31,0%",
+          "−14,0"
         ],
         [
           "Canoni patrimoniali",
@@ -64,7 +72,9 @@
           "€ 22.450",
           "28,1%",
           "15/07/2026",
-          "Da verificare"
+          "Da verificare",
+          "21,9%",
+          "−6,2"
         ],
         [
           "IMU",
@@ -72,7 +82,9 @@
           "€ 330.000",
           "73,3%",
           "30/09/2026",
-          "In controllo"
+          "In controllo",
+          "73,3%",
+          "0,0"
         ],
         [
           "Addizionale comunale IRPEF",
@@ -80,7 +92,9 @@
           "€ 175.000",
           "70,0%",
           "30/09/2026",
-          "In controllo"
+          "In controllo",
+          "70,0%",
+          "0,0"
         ]
       ],
       "form": []
@@ -353,6 +367,14 @@
       "description": "Obiettivi modificabili e scostamento calcolato dagli importi, con verifica delle scadenze.",
       "role": "section",
       "pageId": "residui-attivi",
+      "position": "top"
+    },
+    {
+      "name": "CalcoliIncassoCruscotto",
+      "title": "Calcolo automatico degli incassi",
+      "description": "Aggiorna le colonne della percentuale incassata e dello scostamento al variare dei dati del Cruscotto.",
+      "role": "section",
+      "pageId": "cruscotto",
       "position": "top"
     }
   ]
