@@ -10,15 +10,15 @@
       "metrics": [
         {
           "label": "Residui attivi",
-          "value": "€ 284.600"
+          "value": "€ 479.600"
         },
         {
           "label": "Incassato nel trimestre",
-          "value": "€ 91.250"
+          "value": "€ 596.250"
         },
         {
           "label": "Incasso sulle previsioni",
-          "value": "32,1%"
+          "value": "53,2%"
         },
         {
           "label": "Verifiche in scadenza",
@@ -65,6 +65,22 @@
           "28,1%",
           "15/07/2026",
           "Da verificare"
+        ],
+        [
+          "IMU",
+          "€ 120.000",
+          "€ 330.000",
+          "73,3%",
+          "30/09/2026",
+          "In controllo"
+        ],
+        [
+          "Addizionale comunale IRPEF",
+          "€ 75.000",
+          "€ 175.000",
+          "70,0%",
+          "30/09/2026",
+          "In controllo"
         ]
       ],
       "form": []
@@ -76,7 +92,7 @@
       "metrics": [
         {
           "label": "Tipologie registrate",
-          "value": "4"
+          "value": "6"
         },
         {
           "label": "Da verificare",
@@ -84,7 +100,7 @@
         },
         {
           "label": "In controllo",
-          "value": "1"
+          "value": "3"
         }
       ],
       "columns": [
@@ -137,6 +153,26 @@
           "E-412",
           "15/07/2026",
           "Da verificare"
+        ],
+        [
+          "IMU",
+          "€ 120.000",
+          "€ 450.000",
+          "€ 330.000",
+          "73,3%",
+          "E-510",
+          "30/09/2026",
+          "In controllo"
+        ],
+        [
+          "Addizionale comunale IRPEF",
+          "€ 75.000",
+          "€ 250.000",
+          "€ 175.000",
+          "70,0%",
+          "E-511",
+          "30/09/2026",
+          "In controllo"
         ]
       ],
       "form": [
@@ -161,15 +197,15 @@
         },
         {
           "label": "Importo previsto 2025",
-          "value": "€ 421.000"
+          "value": "€ 1.121.000"
         },
         {
           "label": "Incassato 2025",
-          "value": "€ 91.250"
+          "value": "€ 596.250"
         },
         {
           "label": "Incasso previsto 2025",
-          "value": "21,7%"
+          "value": "53,2%"
         }
       ],
       "columns": [
@@ -212,13 +248,112 @@
           "€ 103.000 · 27,1%",
           "€ 98.000 · 29,6%",
           "€ 94.000 · 33,2%"
+        ],
+        [
+          "IMU",
+          "€ 450.000 · 73,3%",
+          "€ 430.000 · 76,0%",
+          "€ 410.000 · 78,5%",
+          "€ 395.000 · 80,2%",
+          "€ 380.000 · 82,1%"
+        ],
+        [
+          "Addizionale comunale IRPEF",
+          "€ 250.000 · 70,0%",
+          "€ 240.000 · 72,5%",
+          "€ 230.000 · 74,8%",
+          "€ 220.000 · 77,0%",
+          "€ 210.000 · 79,2%"
         ]
       ],
       "form": []
+    },
+    {
+      "id": "andamento-trimestrale-2026",
+      "title": "Andamento trimestrale 2026",
+      "description": "Incassi per tipologia di entrata, suddivisi nei quattro trimestri dell'anno.",
+      "metrics": [
+        {
+          "label": "Trimestri dell'anno",
+          "value": "4"
+        },
+        {
+          "label": "Tipologie monitorate",
+          "value": "6"
+        }
+      ],
+      "columns": [
+        "Tipologia di entrata",
+        "1° trimestre 2026",
+        "2° trimestre 2026",
+        "3° trimestre 2026",
+        "4° trimestre 2026"
+      ],
+      "rows": [
+        [
+          "Canoni di concessione",
+          "€ 8.400",
+          "€ 13.200",
+          "€ 0",
+          "€ 0"
+        ],
+        [
+          "Sanzioni amministrative",
+          "€ 9.500",
+          "€ 18.800",
+          "€ 0",
+          "€ 0"
+        ],
+        [
+          "Servizi scolastici",
+          "€ 7.200",
+          "€ 11.700",
+          "€ 0",
+          "€ 0"
+        ],
+        [
+          "Canoni patrimoniali",
+          "€ 10.400",
+          "€ 12.050",
+          "€ 0",
+          "€ 0"
+        ],
+        [
+          "IMU",
+          "€ 145.000",
+          "€ 185.000",
+          "€ 0",
+          "€ 0"
+        ],
+        [
+          "Addizionale comunale IRPEF",
+          "€ 82.000",
+          "€ 93.000",
+          "€ 0",
+          "€ 0"
+        ]
+      ],
+      "form": [
+        "Tipologia di entrata",
+        "1° trimestre 2026",
+        "2° trimestre 2026",
+        "3° trimestre 2026",
+        "4° trimestre 2026"
+      ]
     }
   ],
   "theme": {
     "palette": "ardesia",
     "fonts": "istituzionale"
-  }
+  },
+  "custom": [
+    {
+      "name": "ObiettiviResidui",
+      "title": "Obiettivi di incasso",
+      "description": "Obiettivi percentuali dimostrativi con confronto automatico e segnalazione alla scadenza.",
+      "role": "section",
+      "pageId": "residui-attivi",
+      "position": "top"
+    }
+  ]
 }
