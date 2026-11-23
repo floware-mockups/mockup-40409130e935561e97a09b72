@@ -1,0 +1,224 @@
+{
+  "title": "Controllo trimestrale dei residui attivi",
+  "description": "Monitora incassi e previsioni per tipologia di entrata. Confronta i dati con gli ultimi cinque bilanci e individua le verifiche in scadenza.",
+  "accent": "indigo",
+  "pages": [
+    {
+      "id": "cruscotto",
+      "title": "Cruscotto",
+      "description": "Situazione del trimestre, prossime scadenze e controlli da fare.",
+      "metrics": [
+        {
+          "label": "Residui attivi",
+          "value": "€ 284.600"
+        },
+        {
+          "label": "Incassato nel trimestre",
+          "value": "€ 91.250"
+        },
+        {
+          "label": "Incasso sulle previsioni",
+          "value": "32,1%"
+        },
+        {
+          "label": "Verifiche in scadenza",
+          "value": "4"
+        }
+      ],
+      "columns": [
+        "Tipologia di entrata",
+        "Importo residuo",
+        "Incassato",
+        "Incasso previsto",
+        "Scadenza",
+        "Stato"
+      ],
+      "rows": [
+        [
+          "Canoni di concessione",
+          "€ 68.400",
+          "€ 21.600",
+          "31,6%",
+          "30/06/2026",
+          "Da verificare"
+        ],
+        [
+          "Sanzioni amministrative",
+          "€ 94.200",
+          "€ 28.300",
+          "30,0%",
+          "30/06/2026",
+          "In controllo"
+        ],
+        [
+          "Servizi scolastici",
+          "€ 42.000",
+          "€ 18.900",
+          "45,0%",
+          "15/07/2026",
+          "In scadenza"
+        ],
+        [
+          "Canoni patrimoniali",
+          "€ 80.000",
+          "€ 22.450",
+          "28,1%",
+          "15/07/2026",
+          "Da verificare"
+        ]
+      ],
+      "form": []
+    },
+    {
+      "id": "residui-attivi",
+      "title": "Registro residui attivi",
+      "description": "Cerca le entrate, filtra per stato e aggiungi una nuova voce. La ricerca e i filtri sono separati dal modulo di inserimento.",
+      "metrics": [
+        {
+          "label": "Tipologie registrate",
+          "value": "4"
+        },
+        {
+          "label": "Da verificare",
+          "value": "2"
+        },
+        {
+          "label": "In controllo",
+          "value": "1"
+        }
+      ],
+      "columns": [
+        "Tipologia di entrata",
+        "Importo residuo",
+        "Importo previsto",
+        "Importo incassato",
+        "Percentuale incassata",
+        "Capitolo",
+        "Scadenza",
+        "Stato"
+      ],
+      "rows": [
+        [
+          "Canoni di concessione",
+          "€ 68.400",
+          "€ 90.000",
+          "€ 21.600",
+          "24,0%",
+          "E-104",
+          "30/06/2026",
+          "Da verificare"
+        ],
+        [
+          "Sanzioni amministrative",
+          "€ 94.200",
+          "€ 135.000",
+          "€ 28.300",
+          "21,0%",
+          "E-218",
+          "30/06/2026",
+          "In controllo"
+        ],
+        [
+          "Servizi scolastici",
+          "€ 42.000",
+          "€ 84.000",
+          "€ 18.900",
+          "22,5%",
+          "E-306",
+          "15/07/2026",
+          "In scadenza"
+        ],
+        [
+          "Canoni patrimoniali",
+          "€ 80.000",
+          "€ 112.000",
+          "€ 22.450",
+          "20,0%",
+          "E-412",
+          "15/07/2026",
+          "Da verificare"
+        ]
+      ],
+      "form": [
+        "Tipologia di entrata",
+        "Importo residuo",
+        "Importo previsto",
+        "Importo incassato",
+        "Percentuale incassata",
+        "Capitolo",
+        "Scadenza",
+        "Stato"
+      ]
+    },
+    {
+      "id": "confronto-bilanci",
+      "title": "Confronto ultimi cinque bilanci",
+      "description": "Confronta importi e percentuali di incasso per tipologia di entrata, dal bilancio più recente ai quattro precedenti.",
+      "metrics": [
+        {
+          "label": "Bilanci a confronto",
+          "value": "5"
+        },
+        {
+          "label": "Importo previsto 2025",
+          "value": "€ 421.000"
+        },
+        {
+          "label": "Incassato 2025",
+          "value": "€ 91.250"
+        },
+        {
+          "label": "Incasso previsto 2025",
+          "value": "21,7%"
+        }
+      ],
+      "columns": [
+        "Tipologia di entrata",
+        "Bilancio 2025",
+        "Bilancio 2024",
+        "Bilancio 2023",
+        "Bilancio 2022",
+        "Bilancio 2021"
+      ],
+      "rows": [
+        [
+          "Canoni di concessione",
+          "€ 90.000 · 24,0%",
+          "€ 86.000 · 29,5%",
+          "€ 82.000 · 31,0%",
+          "€ 78.000 · 34,2%",
+          "€ 74.000 · 36,5%"
+        ],
+        [
+          "Sanzioni amministrative",
+          "€ 135.000 · 21,0%",
+          "€ 128.000 · 25,4%",
+          "€ 121.000 · 27,8%",
+          "€ 115.000 · 30,1%",
+          "€ 109.000 · 32,0%"
+        ],
+        [
+          "Servizi scolastici",
+          "€ 84.000 · 22,5%",
+          "€ 80.000 · 35,2%",
+          "€ 77.000 · 38,0%",
+          "€ 73.000 · 41,6%",
+          "€ 70.000 · 43,0%"
+        ],
+        [
+          "Canoni patrimoniali",
+          "€ 112.000 · 20,0%",
+          "€ 108.000 · 24,8%",
+          "€ 103.000 · 27,1%",
+          "€ 98.000 · 29,6%",
+          "€ 94.000 · 33,2%"
+        ]
+      ],
+      "form": []
+    }
+  ],
+  "theme": {
+    "palette": "ardesia",
+    "fonts": "istituzionale"
+  }
+}
