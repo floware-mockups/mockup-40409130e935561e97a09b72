@@ -41,6 +41,8 @@ export const compareLimits = {
   maxEuro: 1e13,
   /** Celle coperte, in tutto, dalle celle unite (o dalle regole di convalida) di un foglio. */
   mergedCells: 10_000,
+  /** Tag letti in una parte XML del .xlsx prima di exceljs (WZ-2156). */
+  xmlTags: 3_000_000,
 } as const;
 
 // --- Testi e numeri -------------------------------------------------------------

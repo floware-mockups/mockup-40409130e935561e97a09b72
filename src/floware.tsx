@@ -8,7 +8,7 @@
 // del tema (--mk-*), già verificati per il contrasto. I componenti qui sotto chiamano
 // i gestori dei componenti su misura con valori semplici e MAI con l'evento del
 // browser: il codice generato non raggiunge il DOM (vedi convex/lib/mockupCustomCode.ts).
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, lazy, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { distinctValues, statusColumnOf } from "./logic";
 
@@ -548,6 +548,14 @@ export function Card({ title, children }: { title?: string; children?: ReactNode
     </section>
   );
 }
+
+/**
+ * WZ-2157 (v12): l'unico collegamento esterno dei componenti su misura. Apre Google Maps alle
+ * coordinate in una nuova scheda, solo con un clic: il componente passa due numeri, mai un
+ * indirizzo, e il template costruisce e controlla l'URL (lista di domini ammessi: google.com/maps).
+ * Si carica a parte (src/layouts/RowMapsLink.tsx), dentro il Suspense del componente.
+ */
+export const MapsLink = lazy(() => import("./layouts/RowMapsLink").then((m) => ({ default: m.MapsLink })));
 
 /** Etichetta breve (stato, conteggio). */
 export function Badge({ children, tone = "neutral" }: { children?: ReactNode; tone?: "neutral" | "primary" | "danger" }) {

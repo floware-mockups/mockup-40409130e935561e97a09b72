@@ -12,7 +12,7 @@
 //    involucro di questo modulo, come funzioni semplici.
 // 4. Watchdog: il codice generato che gira troppo a lungo si ferma (vedi la sezione 5).
 import { createElement, Fragment, type ComponentType, type ReactNode } from "react";
-import { Badge, Button, Card, Checkbox, Dialog, Drawer, Field, Select, TextArea, TextInput, customComponentStopped, stopCustomComponent, subscribeCustomStops } from "./floware.tsx";
+import { Badge, Button, Card, Checkbox, Dialog, Drawer, Field, MapsLink, Select, TextArea, TextInput, customComponentStopped, stopCustomComponent, subscribeCustomStops } from "./floware.tsx";
 import { hardenIntrinsics } from "./harden.ts";
 import seed from "./spec.json";
 
@@ -331,7 +331,7 @@ function domProps(source: Props, depth: number, svg: boolean): Props {
 // Componenti dell'API: chiamano i gestori con valori semplici (vedi src/floware.tsx). Per
 // ognuno solo le sue proprietà, con i valori ammessi: niente campi password, pulsanti
 // submit o varianti inventate.
-type ApiRule = Record<string, "node" | "handler" | "text" | "flag" | "options" | "rows" | readonly string[]>;
+type ApiRule = Record<string, "node" | "handler" | "text" | "flag" | "options" | "rows" | "number" | readonly string[]>;
 const apiRules = new Map<unknown, ApiRule>([
   [Button, { children: "node", onClick: "handler", variant: ["primary", "secondary", "danger", "link"], disabled: "flag", title: "text", autoFocus: "flag" }],
   [TextInput, { label: "text", value: "text", onChange: "handler", placeholder: "text", type: ["text", "number", "date"] }],
@@ -343,6 +343,8 @@ const apiRules = new Map<unknown, ApiRule>([
   [Card, { title: "text", children: "node" }],
   [Badge, { children: "node", tone: ["neutral", "primary", "danger"] }],
   [Field, { label: "text", children: "node" }],
+  // WZ-2157 (v12): Google Maps alle coordinate; l'URL lo costruisce e lo controlla il template.
+  [MapsLink, { lat: "number", lon: "number", label: "text" }],
 ]);
 function apiProps(rule: ApiRule, source: Props, depth: number): Props {
   const out: Props = {};
@@ -354,6 +356,8 @@ function apiProps(rule: ApiRule, source: Props, depth: number): Props {
       if (typeof value === "function") out[name] = value;
     } else if (kind === "flag") {
       if (typeof value === "boolean") out[name] = value;
+    } else if (kind === "number") {
+      if (typeof value === "number" && Number.isFinite(value)) out[name] = value;
     } else if (kind === "rows") {
       if (typeof value === "number" && Number.isFinite(value)) out[name] = Math.min(Math.max(Math.round(value), 1), 20);
     } else if (kind === "options") {
@@ -404,9 +408,10 @@ export function sanitize(node: unknown, depth = 0, svg = false): ReactNode {
     if (!customAllowedTags.has(type) || (type === "title" && !svg)) return null;
     return createElement(type, { ...domProps(source, depth, svg || type === "svg"), key });
   }
-  if (typeof type !== "function") return null;
+  // I componenti dell'API (anche MapsLink, caricato a parte: non è una funzione) con le loro regole.
   const rule = apiRules.get(type);
   if (rule) return createElement(type as ComponentType<Props>, { ...apiProps(rule, source, depth), key });
+  if (typeof type !== "function") return null;
   // Componente locale del file generato: lo chiama l'involucro, la sua uscita passa da qui.
   const props: Props = {};
   for (const [name, value] of Object.entries(source)) if (name !== "key" && name !== "ref") props[name] = value;

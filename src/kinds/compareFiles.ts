@@ -150,26 +150,133 @@ const areaOf = (ref: string) => {
   const columns = Math.abs(columnNumber(m[3] ?? m[1]) - columnNumber(m[1])) + 1;
   return rows * columns;
 };
+/** Lunghezza massima di un singolo tag (64 KB): ampia per le convalide con molti intervalli. */
+export const xmlTagMaxLength = 64 * 1024;
+/** Tag di un XML, letti in modo lineare: commenti, CDATA e istruzioni si saltano interi e i
+ * «>» dentro i valori fra virgolette (singole o doppie) non chiudono il tag. Oltre `limit` tag
+ * la lettura si ferma con `tooMany`. */
+export function* xmlTags(xml: string, limit: number, tooMany: () => Error): Generator<string> {
+  let i = 0;
+  let count = 0;
+  for (;;) {
+    const lt = xml.indexOf("<", i);
+    if (lt < 0) return;
+    // Una dichiarazione DOCTYPE (Excel non la scrive mai) potrebbe nascondere tag: il file si rifiuta.
+    if (xml.startsWith("<!DOCTYPE", lt) || xml.startsWith("<!doctype", lt)) throw tooMany();
+    if (xml.startsWith("<!--", lt) || xml.startsWith("<![CDATA[", lt) || xml.startsWith("<?", lt)) {
+      const close = xml.startsWith("<!--", lt) ? "-->" : xml.startsWith("<?", lt) ? "?>" : "]]>";
+      const end = xml.indexOf(close, lt + 2);
+      // Un commento, un CDATA o un'istruzione che non si chiude: il resto non si potrebbe controllare.
+      if (end < 0) throw tooMany();
+      i = end + close.length;
+      continue;
+    }
+    let j = lt + 1;
+    let quote = 0;
+    for (; j < xml.length; j++) {
+      const c = xml.charCodeAt(j);
+      if (quote) {
+        if (c === quote) quote = 0;
+      } else if (c === 34 || c === 39) quote = c;
+      else if (c === 62) break;
+    }
+    // Un tag o una virgoletta che non si chiude: il resto non si potrebbe controllare.
+    if (j >= xml.length) throw tooMany();
+    if (++count > limit) throw tooMany();
+    // Un solo tag oltre il tetto (nessun file di Excel ne scrive di così lunghi) si rifiuta.
+    if (j - lt > xmlTagMaxLength) throw tooMany();
+    yield xml.slice(lt + 1, j);
+    i = j + 1;
+  }
+}
 /**
- * Controllo del contenuto di un foglio prima di exceljs, che espande celle
- * unite e regole di convalida cella per cella e crea ogni riga dichiarata: un
- * foglio di pochi KB con una cella unita da A1 a XFD1048576 basterebbe a
- * bloccare la scheda.
+ * Nome del tag senza prefisso e i suoi attributi con il nome ESATTO (virgolette doppie o
+ * singole), come li legge exceljs: «x:ref» non è «ref». Un attributo ripetuto rende il tag
+ * ambiguo: `duplicate` è true e il chiamante lo rifiuta.
+ */
+export function xmlTagParts(tag: string): { name: string; attributes: Record<string, string>; duplicate: boolean } {
+  const space = tag.search(/[\s/]/);
+  const full = space < 0 ? tag : tag.slice(0, space);
+  const name = full.slice(full.lastIndexOf(":") + 1);
+  const attributes: Record<string, string> = {};
+  let duplicate = false;
+  // Lettura carattere per carattere, senza espressioni regolari: ogni carattere si guarda una
+  // volta sola, anche in un tag malformato (WZ-2156, ricontrollo Codex).
+  const blank = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
+  let i = space < 0 ? tag.length : space;
+  while (i < tag.length) {
+    while (i < tag.length && (blank(tag[i]) || tag[i] === "/")) i++;
+    const start = i;
+    while (i < tag.length && !blank(tag[i]) && tag[i] !== "=" && tag[i] !== "/") i++;
+    const key = tag.slice(start, i);
+    while (i < tag.length && blank(tag[i])) i++;
+    if (!key || tag[i] !== "=") {
+      if (i === start) i++;
+      continue;
+    }
+    i++;
+    while (i < tag.length && blank(tag[i])) i++;
+    const quote = tag[i];
+    if (quote !== '"' && quote !== "'") continue;
+    const end = tag.indexOf(quote, i + 1);
+    if (end < 0) break;
+    if (Object.hasOwn(attributes, key)) duplicate = true;
+    attributes[key] = tag.slice(i + 1, end);
+    i = end + 1;
+  }
+  return { name, attributes, duplicate };
+}
+/**
+ * Controllo di una parte XML dell'archivio prima di exceljs, che espande celle unite, regole di
+ * convalida cella per cella e crea ogni riga
+ * dichiarata: un foglio di pochi KB con una cella unita da A1 a XFD1048576 basterebbe a bloccare
+ * la scheda. Lettura lineare con uno scanner a tag limitati (virgolette singole o doppie).
  */
 export function checkWorksheetXml(xml: string) {
   const maxRows = compareLimits.rows + compareLimits.headerScan;
   const tooLarge = () => new CompareFileError(`Il foglio è troppo grande per il prototipo: al massimo ${groupDigits(compareLimits.rows)} righe e nessuna cella unita o regola che copra tutto il foglio.`);
-  const dimension = /<(?:\w+:)?dimension\b[^>]*\bref="([^"]*)"/.exec(xml);
-  if (dimension) {
-    const last = /(\d+)$/.exec(dimension[1].trim());
-    if (last && Number(last[1]) > maxRows) throw tooLarge();
+  const lastRow = (ref: string) => {
+    let max = 0;
+    for (const m of ref.matchAll(/(\d{1,9})(?=\s|$|:)/g)) max = Math.max(max, Number(m[1]));
+    return max;
+  };
+  let covered = 0;
+  const cover = (refs: string | undefined) => {
+    for (const ref of (refs ?? "").split(/\s+/).filter(Boolean)) {
+      // Un riferimento che non si riconosce (per esempio una colonna intera «A:A») non passa.
+      const area = areaOf(ref);
+      if (!area) throw tooLarge();
+      if ((covered += area) > compareLimits.mergedCells) throw tooLarge();
+    }
+  };
+  // exceljs numera da sé righe e celle senza «r»: si contano anche quelle.
+  let rows = 0;
+  let cells = 0;
+  const maxCells = maxRows * compareLimits.columns;
+  for (const tag of xmlTags(xml, compareLimits.xmlTags, tooLarge)) {
+    if (tag.startsWith("/") || tag.startsWith("!")) continue;
+    const { name, attributes, duplicate } = xmlTagParts(tag);
+    // Un attributo ripetuto o con un prefisso («x:ref») rende ambiguo ciò che legge exceljs: si rifiuta.
+    if (["dimension", "row", "c", "mergeCell", "dataValidation"].includes(name) && (duplicate || Object.keys(attributes).some((k) => /:(ref|sqref|r)$/.test(k)))) throw tooLarge();
+    switch (name) {
+      case "dimension":
+        if (lastRow(attributes.ref ?? "") > maxRows) throw tooLarge();
+        break;
+      case "row":
+        if (++rows > maxRows || Number(attributes.r ?? 0) > maxRows) throw tooLarge();
+        break;
+      case "c":
+        if (++cells > maxCells || lastRow(attributes.r ?? "") > maxRows) throw tooLarge();
+        break;
+      // Le sole parti che exceljs espande cella per cella.
+      case "mergeCell":
+        cover(attributes.ref);
+        break;
+      case "dataValidation":
+        cover(attributes.sqref);
+        break;
+    }
   }
-  for (const row of xml.matchAll(/<(?:\w+:)?row\b[^>]*?\br="(\d+)"/g)) if (Number(row[1]) > maxRows) throw tooLarge();
-  let merged = 0;
-  for (const cell of xml.matchAll(/<(?:\w+:)?mergeCell\b[^>]*?\bref="([^"]*)"/g)) if ((merged += areaOf(cell[1])) > compareLimits.mergedCells) throw tooLarge();
-  let validated = 0;
-  for (const rule of xml.matchAll(/<(?:\w+:)?dataValidation\b[^>]*?\bsqref="([^"]*)"/g))
-    for (const ref of rule[1].split(/\s+/)) if ((validated += areaOf(ref)) > compareLimits.mergedCells) throw tooLarge();
 }
 
 /**
@@ -219,14 +326,20 @@ export async function checkXlsxArchive(bytes: Uint8Array) {
     const start = part.local + 30 + view.getUint16(part.local + 26, true) + view.getUint16(part.local + 28, true);
     if (start + part.compressed > bytes.length) throw damaged();
     const data = bytes.subarray(start, start + part.compressed);
-    const sheet = /^xl\/worksheets\/[^/]+\.xml$/.test(part.name);
+    // Ogni parte XML si controlla: un foglio può stare in un percorso diverso da xl/worksheets.
+    const sheet = /\.xml$/i.test(part.name);
     let read: { size: number; content?: Uint8Array } | null;
     if (part.method === 0) read = { size: part.compressed, content: data };
     else if (part.method === 8) read = await inflate(data, compareLimits.unzippedEntryBytes, sheet);
     else throw new CompareFileError("Il file Excel usa una compressione che il prototipo non legge: salvalo di nuovo da Excel.");
-    if (read === null) return; // browser senza estrazione: restano i limiti dichiarati qui sopra
+    // Senza estrazione nel browser la dimensione vera non si può verificare: il file si rifiuta
+    // (le dimensioni dichiarate nell'archivio possono mentire).
+    if (read === null) throw new CompareFileError("Questo browser non riesce a controllare il file Excel: aggiorna il browser oppure salva il file come .csv.");
     if (read.size > compareLimits.unzippedEntryBytes || (total += read.size) > compareLimits.unzippedBytes) throw tooBig();
-    if (sheet && read.content) checkWorksheetXml(new TextDecoder().decode(read.content));
+    if (sheet) {
+      if (!read.content) throw tooBig();
+      checkWorksheetXml(new TextDecoder().decode(read.content));
+    }
   }
 }
 

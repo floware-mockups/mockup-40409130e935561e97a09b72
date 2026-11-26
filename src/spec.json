@@ -45,7 +45,7 @@
           "Monitoraggio"
         ],
         [
-          "Sanzioni amministrative",
+          "Sanzioni amministrative C.D.S.",
           "€ 94.200",
           "€ 28.300",
           "30,0%",
@@ -90,7 +90,19 @@
           "In linea"
         ]
       ],
-      "form": []
+      "form": [],
+      "behavior": {
+        "v": 1,
+        "rowRules": [
+          {
+            "column": 5,
+            "when": "less",
+            "value": "0",
+            "tone": "red",
+            "label": "Negativo"
+          }
+        ]
+      }
     },
     {
       "id": "residui-attivi",
@@ -132,7 +144,7 @@
           "Da verificare"
         ],
         [
-          "Sanzioni amministrative",
+          "Sanzioni amministrative C.D.S.",
           "€ 94.200",
           "€ 135.000",
           "€ 28.300",
@@ -191,7 +203,29 @@
         "Capitolo",
         "Scadenza",
         "Stato"
-      ]
+      ],
+      "behavior": {
+        "v": 1,
+        "fields": [
+          {
+            "column": 0,
+            "options": [
+              "Pratiche edilizie",
+              "Affitti",
+              "Assistenza domiciliare",
+              "Carta d'identità",
+              "Concessioni cimiteriali",
+              "Canone mercatale",
+              "Canone unico patrimoniale",
+              "Entrate da convenzione",
+              "Canoni demaniali",
+              "Diritti pratiche edilizie",
+              "Fondo solidarietà comunale",
+              "Sanzioni amministrative C.D.S."
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "confronto-bilanci",
@@ -233,7 +267,7 @@
           "€ 74.000 · 36,5%"
         ],
         [
-          "Sanzioni amministrative",
+          "Sanzioni amministrative C.D.S.",
           "€ 135.000 · 21,0%",
           "€ 128.000 · 25,4%",
           "€ 121.000 · 27,8%",
@@ -305,7 +339,7 @@
           "€ 0"
         ],
         [
-          "Sanzioni amministrative",
+          "Sanzioni amministrative C.D.S.",
           "€ 9.500",
           "€ 18.800",
           "€ 0",
@@ -350,8 +384,8 @@
     }
   ],
   "theme": {
-    "palette": "ardesia",
-    "fonts": "istituzionale"
+    "palette": "delta-sabbia",
+    "fonts": "alta-leggibilita"
   },
   "custom": [
     {

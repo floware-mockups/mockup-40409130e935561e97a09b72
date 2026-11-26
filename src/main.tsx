@@ -3,7 +3,7 @@ import { agentToken } from "./token";
 import { Component, useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import rawSeed from "./spec.json";
-type MockupData = {title:string;description:string;accent:string;theme?:{palette:string;fonts:string};resetPlacement?:string;navigation?:string;custom?:{name:string;title:string;description:string;role:string;pageId?:string;position?:string;events?:string[];column?:string}[];pages:{id:string;title:string;description:string;metrics:{label:string;value:string}[];columns:string[];rows:string[][];form:string[];sections?:string[];view?:string;statusColumn?:number;chartColumn?:number}[]};
+type MockupData = {title:string;description:string;accent:string;theme?:{palette:string;fonts:string};resetPlacement?:string;navigation?:string;layout?:string;colors?:{title?:string;background?:string};custom?:{name:string;title:string;description:string;role:string;pageId?:string;position?:string;events?:string[];column?:string}[];pages:{id:string;title:string;description:string;metrics:{label:string;value:string;color?:string}[];columns:string[];rows:string[][];form:string[];sections?:string[];view?:string;statusColumn?:number;chartColumn?:number;behavior?:unknown;files?:string[]}[]};
 const seed: MockupData = rawSeed;
 import "./style.css";
 import "./theme.css";
@@ -26,12 +26,23 @@ import { customComponents, preloadCustomComponents } from "./custom";
 import {
   chartBars,
   chartColumnOf,
+  detailOnlyColumnCount,
   distinctValues,
   emptyTableState,
+  fieldIssue,
   fieldOf,
+  fieldRequired,
+  fieldVisible,
+  formIssues,
   kanbanLanes,
-  rowFromForm,
+  prepareFormRow,
+  columnColor,
+  rowHighlight,
+  rowsStriped,
+  rowToneStyle,
   statusColumnOf,
+  tableColumnLimit,
+  tableFilters,
   toggleSort,
   viewOf,
   visibleRows,
@@ -51,6 +62,13 @@ const AgentPanel = lazy(() => import("./agent/AgentPanel").then((m) => ({ defaul
 import { clearKindStates, kindStorageKey } from "./kinds/storage";
 import { createKindAi } from "./kinds/ai";
 const MockupKindPage = lazy(() => import("./kinds/index").then((m) => ({ default: m.MockupKindPage })));
+// v10 (WZ-2156): file veri nelle pagine ordinarie (`pages[].files`), solo nel browser e in
+// memoria. Il pannello e i lettori (Excel, PDF) si caricano a parte, solo se servono.
+import { fileFeaturesOf } from "./kinds/filesBasics";
+import { clearPhotos, commitNewPhotos, noteRowEdit, photosOf, useRowIds } from "./kinds/filesPhotos";
+const FilesPanel = lazy(() => import("./kinds/FilesPanel").then((m) => ({ default: m.FilesPanel })));
+const RowFiles = lazy(() => import("./kinds/FilesPanel").then((m) => ({ default: m.RowFiles })));
+const PhotoAttach = lazy(() => import("./kinds/FilesPanel").then((m) => ({ default: m.PhotoAttach })));
 const kindOf = (page: object) => typeof Reflect.get(page, "kind") === "string";
 // Lo stesso token catturato da src/token.ts (una sola cattura: dopo, l'indirizzo non lo ha più).
 const kindAi = createKindAi(agentGatewayOrigin, agentToken);
@@ -66,6 +84,8 @@ if (theme) {
   const fonts = import.meta.glob("./fonts/*.css");
   void fonts[`./fonts/${theme.fonts}.css`]?.();
 }
+// WZ-2158 (v12): titolo e sfondo dalla tavolozza semantica (regole in theme.css).
+const colors = (Reflect.get(seed, "colors") ?? {}) as { title?: string; background?: string };
 const color = "bg-(--mk-primary) text-(--mk-on-primary)";
 const card = "rounded-xl border border-(--mk-divider) bg-(--mk-surface) shadow-sm";
 const field = "rounded-md border border-(--mk-border) bg-(--mk-surface) px-3 py-2";
@@ -80,8 +100,20 @@ const sectionsOf = (page: object): string[] => {
 };
 const resetPlacement =
   Reflect.get(seed, "resetPlacement") === "top" ? "top" : "bottom";
-// WZ-2088: navigazione in alto o laterale (predefinita).
-const topNavigation = Reflect.get(seed, "navigation") === "top";
+// WZ-2153 (v11): modello di struttura del sito (`layout`); assente = registro, la pagina di
+// sempre. Le viste si caricano a parte (src/layouts), solo se servono.
+const layout = String(Reflect.get(seed, "layout") ?? "");
+// WZ-2088: navigazione in alto o laterale (predefinita); i modelli larghi la portano in alto,
+// salvo la scelta laterale esplicita (`navigation: "side"`, solo con un layout).
+const navigationChoice = Reflect.get(seed, "navigation");
+const topNavigation = navigationChoice === "top" || (navigationChoice !== "side" && !!layout && layout !== "agenda" && layout !== "fascicolo");
+// Sezione in cui sta la vista del layout (segue `sections`, quindi «sposta la sezione»).
+const layoutSlot = layout === "cruscotto" ? "metrics" : layout === "pratica" || layout === "sportello" ? "form" : "table";
+const LayoutView = lazy(() => import("./layouts/index").then((m) => ({ default: m.MockupLayoutView })));
+// v12 (WZ-2158): colore della riga evidenziata per i punti della mappa vera.
+const layoutTools = { fieldOf, prepareFormRow, statusColumnOf, distinctValues, fieldVisible, fieldRequired, newPhotos: (pageId: string) => photosOf(pageId, "new").length, tone: rowHighlight };
+// v12 (WZ-2157): «Apri in Google Maps» nel Dettaglio, a parte con la lettura delle coordinate.
+const RowMapsLink = lazy(() => import("./layouts/RowMapsLink"));
 // WZ-2123: descrizione dei componenti su misura (il codice è in src/custom/). Un
 // componente senza file nel registro è ignorato: il prototipo resta quello standard.
 type CustomMeta = {
@@ -217,6 +249,9 @@ function App() {
   const [detail, setDetailState] = useState<{ pageId: string; index: number } | null>(null);
   const [pendingAction, setPendingAction] = useState<{ action: CustomAction; apply: () => void; meta: CustomMeta } | null>(null);
   const [message, setMessage] = useState("");
+  // v9 (WZ-2154): valori del modulo (per i campi che compaiono solo per una scelta) ed errori.
+  const [formValues, setFormValues] = useState<string[]>([]);
+  const [formErrors, setFormErrors] = useState<Record<number, string>>({});
   // «Ripristina demo» fa ripartire da capo anche i tipi di pagina.
   const [resets, setResets] = useState(0);
   const pagesRef = useRef(pages);
@@ -243,12 +278,16 @@ function App() {
     },
   }), []);
   const page = pages.find((p) => p.id === active) ?? pages[0];
+  // v10: identificativo stabile di ogni riga, solo in memoria (le foto seguono la riga).
+  const rowIdOf = useRowIds(pages);
   const setDetail = (index: number | null) => setDetailState(index === null ? null : { pageId: page.id, index });
   useEffect(() => {
     const changed = () => {
       const next = location.hash.slice(1);
       setActive(next);
       setTable(emptyTableState);
+      setFormValues([]);
+      setFormErrors({});
       // Il dettaglio aperto da un componente su un'altra pagina resta aperto.
       setDetailState((d) => (d && d.pageId === next ? d : null));
       setPendingAction(null);
@@ -314,8 +353,32 @@ function App() {
   const status = statusColumnOf(page);
   const statuses = distinctValues(page.rows, status);
   const items = visibleRows(page, table);
-  const view = viewOf(page);
+  // v11: bacheca e schede mostrano le righe come kanban e card, se la pagina non dice altro.
+  const view = viewOf(!Reflect.get(page, "view") && (layout === "bacheca" || layout === "schede") ? { ...page, view: layout === "bacheca" ? "kanban" : "cards" } : page);
+  // v11: sezione nativa sostituita dalla vista del layout (layoutReplaces in src/layouts/layoutLogic.ts).
+  const replaced = layout === "cruscotto" && page.metrics.length ? "metrics" : (layout === "pratica" || layout === "sportello") && page.form.length ? "form" : "";
   const chart = chartColumnOf(page);
+  const files = kindOf(page) ? [] : fileFeaturesOf(page);
+  // v9 (WZ-2154): filtri, righe evidenziate o alterne e regole dei campi della specifica.
+  const filters = tableFilters(page);
+  const striped = rowsStriped(page);
+  const highlight = (row: string[]) => rowHighlight(page, row);
+  const rowBadge = (row: string[]) => {
+    const h = highlight(row);
+    return h ? <span className="mr-2 inline-block rounded-full border border-(--mk-border) bg-(--mk-surface) px-2 py-0.5 text-xs font-semibold text-(--mk-text)">{h.label}</span> : null;
+  };
+  // Una cella che non rispetta una regola di validazione: segno e testo, non solo il colore.
+  const cellChecked = (value: string, column: number, content: ReactNode) => {
+    const issue = fieldIssue(page, column, value);
+    return issue ? (
+      <span className="text-(--mk-danger)" title={issue}>
+        {content} <span aria-hidden="true">⚠</span>
+        <span className="sr-only"> (valore non valido: {issue})</span>
+      </span>
+    ) : (
+      content
+    );
+  };
   const actions = (index: number) => (
     <div className="flex flex-wrap gap-3 text-sm">
       {status >= 0 && statuses.length > 1 && (
@@ -329,7 +392,15 @@ function App() {
               // Calcolato sullo stato al momento della conferma: le modifiche fatte nel
               // frattempo dal componente (per esempio una nota) restano.
               () => {
-                setPages((current) => current.map((p) => (p.id === pageId ? { ...p, rows: withNextStatus(p, index) } : p)));
+                setPages((current) =>
+                  current.map((p) => {
+                    if (p.id !== pageId) return p;
+                    const next = withNextStatus(p, index);
+                    // v10: la riga cambiata in posizione dal template tiene il suo identificativo (e le foto).
+                    noteRowEdit(p.rows, next);
+                    return { ...p, rows: next };
+                  }),
+                );
                 setMessage("Stato aggiornato nella demo");
               },
             );
@@ -357,13 +428,13 @@ function App() {
     </div>
   );
   const rowCard = (row: string[], index: number) => (
-    <article key={index} className={`${card} grid gap-2 p-4`}>
-      <h4 className="font-semibold">{cellView(row[0], 0, index)}</h4>
+    <article key={index} className={`${card} grid gap-2 p-4`} style={rowToneStyle(highlight(row)?.tone ?? null, false, 0)}>
+      <h4 className="font-semibold" data-mk-text={columnColor(page, 0)}>{rowBadge(row)}{cellChecked(row[0], 0, cellView(row[0], 0, index))}</h4>
       <dl className="grid gap-1 text-sm">
-        {row.slice(1).map((cell, i) => (
+        {row.slice(1, tableColumnLimit).map((cell, i) => (
           <div key={i} className="flex justify-between gap-3">
             <dt className="text-(--mk-muted)">{page.columns[i + 1]}</dt>
-            <dd className="text-right">{cellView(cell, i + 1, index)}</dd>
+            <dd className="text-right" data-mk-text={columnColor(page, i + 1)}>{cellChecked(cell, i + 1, cellView(cell, i + 1, index))}</dd>
           </div>
         ))}
       </dl>
@@ -378,6 +449,7 @@ function App() {
         setTable(emptyTableState);
         setDetail(null);
         clearKindStates();
+        clearPhotos();
         setResets((n) => n + 1);
         setMessage("Dati dimostrativi ripristinati");
       }}
@@ -419,7 +491,7 @@ function App() {
         role="dialog"
         aria-modal="true"
         aria-label={`Dettaglio di ${shown[0]}`}
-        className={`${card} w-full max-w-md p-6`}
+        className={`${card} max-h-[90vh] w-full max-w-md overflow-y-auto p-6`}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 text-lg font-semibold">{shown[0]}</h3>
@@ -431,15 +503,68 @@ function App() {
             </div>
           ))}
         </dl>
+        {/* WZ-2157 (v12): coordinate della riga → Google Maps in una nuova scheda (solo con un clic). */}
+        {shown && (
+          <Suspense fallback={null}>
+            <RowMapsLink page={page} row={shown} />
+          </Suspense>
+        )}
+        {(files.includes("photos") || files.includes("export")) && detail && (
+          <Suspense fallback={null}>
+            <RowFiles page={page} rowIndex={detail.index} rowId={rowIdOf(page.id, detail.index)} prototypeTitle={seed.title} />
+          </Suspense>
+        )}
         <button autoFocus className={`mt-6 rounded-lg px-4 py-2 ${color}`} onClick={() => setDetail(null)}>
           Chiudi
         </button>
       </div>
     </div>
   );
+  // v11: vista del layout, nel punto della sua sezione; usa la pipeline e le foto del modulo nativo.
+  const layoutView = (
+    <Suspense fallback={null}>
+      <LayoutView
+        key={`${page.id}-${resets}`}
+        layout={layout}
+        page={page}
+        pages={pages}
+        samples={seed.pages}
+        tools={layoutTools}
+        photos={
+          files.includes("photos") ? (
+            <Suspense fallback={null}>
+              <PhotoAttach pageId={page.id} row="new" />
+            </Suspense>
+          ) : null
+        }
+        onAdd={(row, done, after) => {
+          const pageId = page.id;
+          request({ kind: "add", pageId, rowIndex: page.rows.length, row }, () => {
+            commitNewPhotos(pageId, row);
+            setRowsOf(pageId, (rows) => [...rows, row], done);
+            after?.();
+          });
+        }}
+        onUpdate={(index, row, done) => {
+          // Come «Cambia stato»: un componente di conferma su misura può intercettarlo.
+          const pageId = page.id;
+          const at = row.findIndex((c, i) => c !== page.rows[index][i]);
+          request({ kind: "status", pageId, rowIndex: index, row: page.rows[index], from: page.rows[index][at] ?? "", to: row[at] ?? "" }, () =>
+            setRowsOf(pageId, (rows) => {
+              const next = rows.map((r, i) => (i === index ? row : r));
+              noteRowEdit(rows, next);
+              return next;
+            }, done),
+          );
+        }}
+        onDetail={setDetail}
+        onNavigate={(id) => (location.hash = id)}
+      />
+    </Suspense>
+  );
   return (
     <FlowareRuntime.Provider value={runtime}>
-    <div className={`min-h-screen bg-(--mk-bg) text-(--mk-text) ${topNavigation ? "" : "md:flex"}`}>
+    <div data-layout={layout || undefined} data-title-color={colors.title} data-bg-color={colors.background} className={`min-h-screen bg-(--mk-bg) text-(--mk-text) ${topNavigation ? "" : "md:flex"}`}>
       <aside
         className={
           topNavigation
@@ -481,12 +606,23 @@ function App() {
             <MockupKindPage key={`${page.id}-${resets}`} page={page} ai={kindAi} storageKey={kindStorageKey(page)} />
           </Suspense>
         )}
+        {files.length > 0 && (
+          <Suspense fallback={<p className="mt-6 text-(--mk-muted)">Caricamento…</p>}>
+            <FilesPanel
+              key={`${page.id}-${resets}`}
+              page={page}
+              prototypeTitle={seed.title}
+              onAddRows={(rows, done) => setRowsOf(page.id, (current) => [...current, ...rows], done)}
+            />
+          </Suspense>
+        )}
         {!kindOf(page) && sectionsOf(page).map((section) => (
           <div key={section} data-section={section}>
-            {section === "metrics" && (
+            {layout && section === layoutSlot && layoutView}
+            {section === "metrics" && replaced !== "metrics" && (
               <div className="my-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {page.metrics.map((m, i) => (
-                  <div key={i} className={`${card} min-w-0 p-5`}>
+                  <div key={i} className={`${card} min-w-0 p-5`} data-mk-fill={Reflect.get(m, "color")}>
                     <p className="text-sm text-(--mk-muted) [overflow-wrap:break-word] [text-wrap:balance]">{m.label}</p>
                     {/* Valori lunghi più piccoli e a capo fra le parole: mai tagliati a metà. */}
                     <p className={`mt-3 font-semibold [overflow-wrap:break-word] ${m.value.length > 12 ? "text-2xl" : "text-3xl"}`}>{m.value}</p>
@@ -542,6 +678,23 @@ function App() {
                           </select>
                         </label>
                       )}
+                      {filters.map((f) => (
+                        <label key={f.column}>
+                          {f.label}{" "}
+                          <select
+                            className={`ml-2 ${field}`}
+                            value={table.filters?.[String(f.column)] ?? ""}
+                            onChange={(e) => setTable({ ...table, filters: { ...table.filters, [String(f.column)]: e.target.value } })}
+                          >
+                            <option value="">Tutti</option>
+                            {f.options.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
                     </div>
                   </div>
                   {view === "table" && (
@@ -549,7 +702,7 @@ function App() {
                       <table className="w-full text-left text-sm">
                         <thead className="bg-(--mk-subtle)">
                           <tr>
-                            {page.columns.map((c, i) => (
+                            {page.columns.slice(0, tableColumnLimit).map((c, i) => (
                               <th
                                 key={i}
                                 className="px-5 py-3"
@@ -565,16 +718,21 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map(({ row, index }) => (
-                            <tr key={index} className="border-t border-(--mk-divider)">
-                              {row.map((cell, i) => (
-                                <td key={i} className="px-5 py-4">
-                                  {cellView(cell, i, index)}
+                          {items.map(({ row, index }, position) => {
+                            // Sfondo sulla riga, bordo colorato sulla prima cella (i browser non disegnano ombre sulle righe).
+                            const { boxShadow, ...tone } = rowToneStyle(highlight(row)?.tone ?? null, striped, position);
+                            return (
+                            <tr key={index} className="border-t border-(--mk-divider)" style={tone}>
+                              {row.slice(0, tableColumnLimit).map((cell, i) => (
+                                <td key={i} className="px-5 py-4" style={i === 0 && boxShadow ? { boxShadow } : undefined} data-mk-text={columnColor(page, i)}>
+                                  {i === 0 && rowBadge(row)}
+                                  {cellChecked(cell, i, cellView(cell, i, index))}
                                 </td>
                               ))}
                               <td className="px-5 py-4">{actions(index)}</td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -599,40 +757,68 @@ function App() {
                   {items.length === 0 && (
                     <p className="p-5 text-(--mk-muted)">Nessun elemento trovato.</p>
                   )}
+                  {items.length > 0 && detailOnlyColumnCount(page) > 0 && (
+                    <p className="border-t border-(--mk-divider) px-5 py-3 text-sm text-(--mk-muted)">
+                      Altri {detailOnlyColumnCount(page)} campi in Dettaglio: {page.columns.slice(tableColumnLimit).join(", ")}.
+                    </p>
+                  )}
                 </section>
               </>
             )}
-            {section === "form" && page.form.length > 0 && (
+            {section === "form" && replaced !== "form" && page.form.length > 0 && (
               <section className={`mt-6 ${card} p-5`}>
                 <h3 className="mb-4 font-semibold">Aggiungi un esempio inventato</h3>
                 <form
                   key={page.id}
                   className="grid gap-4 sm:grid-cols-2"
+                  onChange={(e) => {
+                    const data = new FormData(e.currentTarget);
+                    const values = page.form.map((_, i) => String(data.get(`field-${i}`) ?? ""));
+                    setFormValues(values);
+                    // Un errore già mostrato sparisce appena il campo è corretto.
+                    const now = formIssues(page, values);
+                    setFormErrors((prev) => Object.fromEntries(Object.keys(prev).filter((k) => now[Number(k)]).map((k) => [k, now[Number(k)]])));
+                  }}
                   onSubmit={(e) => {
                     e.preventDefault();
                     const form = e.currentTarget;
                     const data = new FormData(form);
-                    const row = rowFromForm(
-                      page,
-                      page.form.map((_, i) => String(data.get(`field-${i}`) ?? "")),
-                    );
+                    const values = page.form.map((_, i) => String(data.get(`field-${i}`) ?? ""));
+                    // v9: regole di validazione dei campi visibili; il primo campo sbagliato prende il fuoco.
+                    // v11: stessa pipeline di pratica guidata e sportello (prepareFormRow).
+                    // Una foto preparata nel modulo è un dato utile anche con i campi vuoti.
+                    const { issues, row } = prepareFormRow(page, values, {}, { photos: photosOf(page.id, "new").length > 0 });
+                    setFormErrors(issues);
+                    const first = Object.keys(issues)[0];
+                    if (first !== undefined || !row) {
+                      (form.elements.namedItem(`field-${first}`) as HTMLElement | null)?.focus();
+                      return;
+                    }
                     const pageId = page.id;
                     request({ kind: "add", pageId, rowIndex: page.rows.length, row }, () => {
+                      // v10: le foto preparate nel modulo passano alla riga nuova.
+                      commitNewPhotos(pageId, row);
                       setPages((current) => current.map((p) => (p.id === pageId ? { ...p, rows: [...p.rows, row] } : p)));
                       setMessage("Esempio aggiunto nella sessione");
                       form.reset();
+                      setFormValues([]);
                     });
                   }}
                 >
                   {page.form.map((f, i) => {
+                    // v9: un campo che compare solo per una certa scelta di un altro campo.
+                    if (!fieldVisible(page, i, formValues)) return null;
                     // Tipo del campo riconosciuto dalla colonna, come nell'anteprima di FlowareHub.
                     const kind = fieldOf(page, i);
                     const name = `field-${i}`;
+                    const required = fieldRequired(page, i);
+                    const error = formErrors[i];
+                    const invalid = error ? { "aria-invalid": true, "aria-describedby": `${name}-error` } : {};
                     return (
-                      <label key={i} className={`grid gap-2 text-sm ${kind.kind === "long" ? "sm:col-span-2" : ""}`}>
+                      <label key={i} className={`grid content-start gap-2 text-sm ${kind.kind === "long" ? "sm:col-span-2" : ""}`}>
                         {f}
                         {kind.kind === "choice" ? (
-                          <select required name={name} className={field} defaultValue="">
+                          <select required={required} name={name} className={field} defaultValue="" {...invalid}>
                             <option value="" disabled>
                               Scegli…
                             </option>
@@ -643,10 +829,11 @@ function App() {
                             ))}
                           </select>
                         ) : kind.kind === "long" ? (
-                          <textarea required maxLength={120} rows={3} name={name} className={field} />
+                          <textarea required={required} maxLength={120} rows={3} name={name} className={field} {...invalid} />
                         ) : (
                           <input
-                            required
+                            required={required}
+                            {...invalid}
                             maxLength={120}
                             name={name}
                             className={field}
@@ -655,9 +842,21 @@ function App() {
                             inputMode={kind.kind === "number" ? "decimal" : undefined}
                           />
                         )}
+                        {error && (
+                          <span id={`${name}-error`} role="alert" className="text-(--mk-danger)">
+                            {error}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
+                  {files.includes("photos") && (
+                    <div className="sm:col-span-2">
+                      <Suspense fallback={null}>
+                        <PhotoAttach pageId={page.id} row="new" />
+                      </Suspense>
+                    </div>
+                  )}
                   <div className="sm:col-span-2">
                     <button type="submit" className={`rounded-lg px-5 py-2.5 font-medium ${color}`}>
                       Aggiungi
